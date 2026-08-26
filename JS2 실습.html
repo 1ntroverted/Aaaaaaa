@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JS2 실습 - 학생용</title>
+  <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, "Noto Sans KR", sans-serif;
+      background: white;
+      color: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .profile-card {
+      width: 430px;
+      padding: 36px;
+      border: 2px solid black;
+      background: white;
+    }
+
+    h1 {
+      margin: 0 0 30px;
+      text-align: center;
+      font-size: 30px;
+    }
+
+    .field {
+      margin-bottom: 24px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      height: 46px;
+      padding: 0 12px;
+      border: 2px solid black;
+      font-size: 16px;
+    }
+
+    button {
+      display: block;
+      width: 150px;
+      height: 46px;
+      margin: 18px auto 0;
+      border: 2px solid black;
+      background: white;
+      color: black;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #message {
+      min-height: 24px;
+      margin: 22px 0 0;
+      text-align: center;
+      font-size: 15px;
+      font-weight: bold;
+    }
+
+    .saved-profile {
+      margin-top: 24px;
+      padding: 18px;
+      border: 1px solid black;
+    }
+
+    .saved-profile h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+    }
+
+    .saved-profile p {
+      margin: 8px 0;
+      font-size: 16px;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="profile-card">
+    <h1>나의 프로필</h1>
+
+    <form id="profileForm">
+      <div class="field">
+        <label for="nameInput">이름</label>
+        <input id="nameInput" type="text" placeholder="이름을 입력하세요">
+      </div>
+
+      <div class="field">
+        <label for="interestInput">관심 분야</label>
+        <input id="interestInput" type="text" placeholder="관심 분야를 입력하세요">
+      </div>
+
+      <button type="submit">저장하기</button>
+    </form>
+
+    <p id="message">프로필을 입력해주세요.</p>
+
+    <button id="viewBtn" type="button">프로필 보기</button>
+
+    <div class="saved-profile">
+      <h2>저장된 프로필</h2>
+      <p>이름 : <span id="savedNameText"></span></p>
+      <p>관심 분야 : <span id="savedInterestText"></span></p>
+    </div>
+  </div>
+
+
+  <script>
+    // 사용할 HTML 요소들을 가져와 변수에 저장합니다.
+    const form = document.querySelector("#profileForm");
+    const nameInput = document.querySelector("#nameInput");
+    const interestInput = document.querySelector("#interestInput");
+    const message = document.querySelector("#message");
+    const viewBtn = document.querySelector("#viewBtn");
+    const savedNameText = document.querySelector("#savedNameText");
+    const savedInterestText = document.querySelector("#savedInterestText");
+
+    // localStorage에서 저장된 값을 가져와 입력창에 다시 넣으세요.
+    // 힌트: 입력창.value = localStorage.getItem("키");
+
+
+    // 저장하기 버튼으로 Form을 제출했을 때 실행됩니다.
+    form.addEventListener("submit", function(event) {
+      // Form의 기본 제출 동작을 막으세요.
+
+
+      // 두 입력창의 현재 값을 각각 const 변수에 저장하세요.
+
+
+      // if / else로 빈칸을 검사하세요.
+      // 하나라도 비어 있으면 아래 문장을 실행합니다.
+      // message.textContent = "모든 내용을 입력해주세요.";
+      // 정상 입력이면 localStorage에 두 값을 저장한 뒤 아래 문장을 실행합니다.
+      // message.textContent = "프로필이 저장되었습니다!";
+    });
+
+    // 프로필 보기 버튼을 클릭했을 때 실행됩니다.
+    viewBtn.addEventListener("click", function() {
+      // localStorage에서 이름과 관심 분야를 가져와 각각 const 변수에 저장하세요.
+
+
+      // 위에서 만든 변수 이름을 savedName, savedInterest로 작성하세요.
+      savedNameText.textContent = savedName;
+      savedInterestText.textContent = savedInterest;
+    });
+  </script>
+
+</body>
+</html>
