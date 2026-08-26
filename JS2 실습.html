@@ -135,27 +135,31 @@
 
     // localStorage에서 저장된 값을 가져와 입력창에 다시 넣으세요.
     // 힌트: 입력창.value = localStorage.getItem("키");
-
+    nameInput.value = localStorage.getitem("savedNameText");
+    interestInput.value = localStorage.getitem("savedInterestText");
 
     // 저장하기 버튼으로 Form을 제출했을 때 실행됩니다.
     form.addEventListener("submit", function(event) {
       // Form의 기본 제출 동작을 막으세요.
-
+      event.preventDefault();
 
       // 두 입력창의 현재 값을 각각 const 변수에 저장하세요.
-
+      const a = nameInput.value
+      const b = interestInput.value
 
       // if / else로 빈칸을 검사하세요.
       // 하나라도 비어 있으면 아래 문장을 실행합니다.
-      // message.textContent = "모든 내용을 입력해주세요.";
-      // 정상 입력이면 localStorage에 두 값을 저장한 뒤 아래 문장을 실행합니다.
-      // message.textContent = "프로필이 저장되었습니다!";
+      if a or b == NULL
+        message.textContent = "모든 내용을 입력해주세요.";
+      // 정상 입력이면 localStorage에 두 값을 저장한 뒤 아래 문장을 실행합니다
+      else
+        message.textContent = "프로필이 저장되었습니다!";
     });
 
     // 프로필 보기 버튼을 클릭했을 때 실행됩니다.
     viewBtn.addEventListener("click", function() {
       // localStorage에서 이름과 관심 분야를 가져와 각각 const 변수에 저장하세요.
-
+      
 
       // 위에서 만든 변수 이름을 savedName, savedInterest로 작성하세요.
       savedNameText.textContent = savedName;
