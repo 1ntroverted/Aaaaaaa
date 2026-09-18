@@ -1,0 +1,2269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Russian Roulette</title>
+<style>
+  :root {
+    --bg: #14110E;
+    --bg-panel: #1C1814;
+    --ink: #EDE6D8;
+    --ink-dim: #8A8178;
+    --brass: #B08D4F;
+    --brass-bright: #D9B876;
+    --red: #8B2A2A;
+    --red-bright: #C24545;
+    --line: #332C24;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Georgia, 'Iowan Old Style', serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .stage {
+    width: 100%;
+    max-width: 760px;
+  }
+
+  .game-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 190px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .game-main {
+    min-width: 0;
+  }
+
+  .game-roster {
+    border-left: 1px solid var(--line);
+    padding-left: 18px;
+    font-family: system-ui, sans-serif;
+  }
+
+  .game-roster-title {
+    color: var(--ink-dim);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+
+  .game-roster .roster {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
+    margin-top: 0;
+  }
+
+  .game-roster .roster .chip {
+    display: block;
+    padding: 7px 10px;
+    border-radius: 4px;
+  }
+
+  .game-roster .roster .chip.current-turn {
+    border-width: 3px;
+    border-color: var(--brass-bright);
+  }
+
+  @media (max-width: 640px) {
+    .stage { max-width: 460px; }
+
+    .game-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .game-roster {
+      border-left: none;
+      border-top: 1px solid var(--line);
+      padding-left: 0;
+      padding-top: 16px;
+    }
+
+    .game-roster .roster {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+  }
+
+  .kicker {
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--ink-dim);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-size: 40px;
+    font-weight: 400;
+    text-align: center;
+    letter-spacing: 0.01em;
+    color: var(--brass-bright);
+    margin-bottom: 34px;
+  }
+
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 28px 26px;
+  }
+
+  .game-panel-flash {
+    animation: gameFlashGreen 0.28s ease-out;
+  }
+
+  @keyframes gameFlashGreen {
+    0%   { box-shadow: 0 0 0 rgba(63, 138, 74, 0); }
+    35%  { box-shadow: 0 0 35px rgba(114, 196, 125, 0.8); }
+    100% { box-shadow: 0 0 0 rgba(63, 138, 74, 0); }
+  }
+
+  .game-panel-bang {
+    animation: gameFlashRed 0.28s ease-out;
+  }
+
+  @keyframes gameFlashRed {
+    0%   { box-shadow: 0 0 0 rgba(194, 69, 69, 0); }
+    35%  { box-shadow: 0 0 35px rgba(194, 69, 69, 0.85); }
+    100% { box-shadow: 0 0 0 rgba(194, 69, 69, 0); }
+  }
+
+  .screen-shake {
+    animation: screenShake 0.28s ease-out;
+  }
+
+  @keyframes screenShake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-5px, 2px); }
+    40% { transform: translate(5px, -2px); }
+    60% { transform: translate(-3px, 1px); }
+    80% { transform: translate(3px, -1px); }
+  }
+
+  .chamber-dot.current {
+    animation: chamberPulse 0.9s ease-in-out infinite;
+  }
+
+  @keyframes chamberPulse {
+    0%, 100% {
+      filter: drop-shadow(0 0 0 rgba(217, 184, 118, 0));
+    }
+
+    50% {
+      filter: drop-shadow(0 0 6px rgba(217, 184, 118, 0.7));
+    }
+  }
+
+  .chamber-dot.safe {
+    filter: drop-shadow(0 0 8px rgba(114, 196, 125, 0.75));
+  }
+
+  .bang-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 245, 225, 0.75);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 100;
+  }
+
+  .bang-overlay.active {
+    animation: bangFlash 0.22s ease-out;
+  }
+
+  @keyframes bangFlash {
+    0% { opacity: 0.9; }
+    100% { opacity: 0; }
+  }
+
+  .panel p.lead {
+    font-family: system-ui, sans-serif;
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--ink-dim);
+    margin-bottom: 22px;
+  }
+
+  .players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+  }
+
+  .player-row .num {
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    color: var(--ink-dim);
+    width: 18px;
+  }
+
+  .player-row input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--ink);
+    font-family: Georgia, serif;
+    font-size: 17px;
+    padding: 4px 0;
+    outline: none;
+  }
+
+  .player-row input::placeholder {
+    color: #55503F;
+  }
+
+  .player-row button.remove {
+    background: none;
+    border: none;
+    color: var(--ink-dim);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    font-family: system-ui, sans-serif;
+  }
+
+  .player-row button.remove:hover {
+    color: var(--red-bright);
+  }
+
+  .add-player {
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--line);
+    color: var(--ink-dim);
+    font-family: system-ui, sans-serif;
+    font-size: 13.5px;
+    padding: 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-bottom: 22px;
+  }
+
+  .add-player:hover {
+    border-color: var(--brass);
+    color: var(--brass-bright);
+  }
+
+  .primary-btn {
+    width: 100%;
+    background: var(--red);
+    color: #F4EADF;
+    border: none;
+    font-family: system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 15px;
+    border-radius: 3px;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    transition: background 0.15s ease;
+  }
+
+  .primary-btn:hover {
+    background: var(--red-bright);
+  }
+
+  .primary-btn:disabled {
+    background: #3A342C;
+    color: var(--ink-dim);
+    cursor: not-allowed;
+  }
+
+  .setup-note {
+    font-family: system-ui, sans-serif;
+    font-size: 12px;
+    color: var(--ink-dim);
+    text-align: center;
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  .turn-panel {
+    text-align: center;
+  }
+
+  .up-label {
+    font-family: system-ui, sans-serif;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--ink-dim);
+    margin-bottom: 8px;
+  }
+
+  .up-name {
+    font-size: 32px;
+    color: var(--brass-bright);
+    margin-bottom: 28px;
+  }
+
+  .cylinder-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 26px;
+    transform-origin: center center;
+  }
+
+  .cylinder-wrap.spinning {
+    animation: cylinderSpin 1.05s cubic-bezier(0.25, 0.7, 0.25, 1);
+  }
+
+  .cylinder-wrap.spinning .chamber-dot.current {
+    stroke-width: 1.5;
+    stroke: var(--line);
+  }
+
+  @keyframes cylinderSpin {
+    0% { transform: rotate(0deg); }
+    16.66% { transform: rotate(60deg); }
+    33.33% { transform: rotate(120deg); }
+    50% { transform: rotate(180deg); }
+    66.66% { transform: rotate(240deg); }
+    83.33% { transform: rotate(300deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .chamber-dot {
+    transition: fill 0.25s ease, stroke 0.25s ease;
+  }
+
+  .chamber-dot.spent {
+    fill: var(--red);
+  }
+
+  .chamber-dot.safe {
+    fill: #3F8A4A;
+    stroke: #72C47D;
+  }
+
+  .chamber-dot.current {
+    stroke: var(--brass-bright);
+    stroke-width: 3;
+  }
+
+  .status-line {
+    text-align: center;
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+    color: var(--ink-dim);
+    min-height: 20px;
+    margin-bottom: 22px;
+  }
+
+  .status-line.bang {
+    color: var(--red-bright);
+    font-weight: 600;
+  }
+
+  .status-line.click {
+    color: var(--ink);
+  }
+
+  .roster {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 26px;
+    font-family: system-ui, sans-serif;
+    font-size: 12.5px;
+  }
+
+  .roster .chip {
+    padding: 5px 11px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    color: var(--ink-dim);
+  }
+
+  .roster .chip.alive {
+    color: var(--ink);
+    border-color: var(--brass);
+  }
+
+  .roster .chip.out {
+    color: #6B4141;
+    text-decoration: line-through;
+    border-color: #3A2828;
+  }
+  .winner-screen {
+    text-align: center;
+  }
+
+  .winner-screen .up-label {
+    margin-bottom: 4px;
+  }
+
+  .winner-screen .up-name {
+    margin-bottom: 6px;
+  }
+
+  .winner-screen p.sub {
+    font-family: system-ui, sans-serif;
+    color: var(--ink-dim);
+    font-size: 14px;
+    margin-bottom: 26px;
+  }
+
+  .secondary-btn {
+    width: 100%;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--ink-dim);
+    font-family: system-ui, sans-serif;
+    font-size: 13.5px;
+    padding: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+
+  .secondary-btn:hover {
+    border-color: var(--brass);
+    color: var(--brass-bright);
+  }
+
+  /* ---------- Mini games ---------- */
+
+  .game-select,
+  .mini-game {
+    text-align: center;
+  }
+
+  .select-title,
+  .mini-title {
+    font-size: 30px;
+    color: var(--brass-bright);
+    margin: 4px 0 24px;
+  }
+
+  .game-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .game-card {
+    text-align: left;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 15px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: system-ui, sans-serif;
+    transition: 0.15s ease;
+  }
+
+  .game-card:hover {
+    border-color: var(--brass);
+    background: #211d18;
+  }
+
+  .game-card strong {
+    display: block;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .game-card span {
+    display: block;
+    color: var(--ink-dim);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .card-display {
+    width: 120px;
+    height: 160px;
+    margin: 0 auto 18px;
+    border: 1px solid var(--brass);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 54px;
+    color: var(--brass-bright);
+    background: #181512;
+  }
+
+  .mini-status {
+    min-height: 22px;
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+    color: var(--ink-dim);
+    margin-bottom: 18px;
+  }
+
+  .choice-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .reaction-box {
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    margin-bottom: 16px;
+    font-family: system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--ink-dim);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .reaction-box.ready {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red-bright);
+  }
+
+  @media (max-width: 640px) {
+    .panel {
+      padding: 22px 18px;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 26px;
+    }
+
+    .up-name {
+      font-size: 28px;
+    }
+
+    .select-title,
+    .mini-title {
+      font-size: 26px;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="stage">
+
+  <div class="kicker">PASS &amp; PLAY</div>
+  <h1>Russian Roulette</h1>
+
+  <!-- SETUP -->
+  <div class="panel" id="setupScreen">
+
+    <p class="lead">
+      Add everyone playing. Pass the device to the next name after every pull.
+    </p>
+
+    <div class="players-list" id="playersList"></div>
+
+    <button class="add-player" id="addPlayerBtn">
+      + Add player
+    </button>
+
+    <button class="primary-btn" id="startBtn">
+      Load the cylinder
+    </button>
+
+    <p class="setup-note">
+      A simulated game of chance. Nothing here is real - no data leaves this page.
+    </p>
+
+  </div>
+
+
+  <!-- GAME SELECT -->
+  <div class="panel hidden" id="gameSelectScreen">
+
+    <div class="game-select">
+
+      <div class="up-label">GAME SELECT</div>
+
+      <div class="select-title">
+        Choose a game
+      </div>
+
+      <div class="game-menu">
+
+        <button class="game-card" data-game="roulette">
+          <strong>Russian Roulette</strong>
+          <span>
+            Six chambers. One bullet. Last player standing wins.
+          </span>
+        </button>
+
+        <button class="game-card" data-game="highlow">
+          <strong>High or Low</strong>
+          <span>
+            Guess whether the next card is higher or lower.
+          </span>
+        </button>
+
+        <button class="game-card" data-game="reaction">
+          <strong>Reaction Test</strong>
+          <span>
+            Wait for the signal, then react as fast as you can.
+          </span>
+        </button>
+
+      </div>
+
+      <button class="secondary-btn" id="gameSelectBackBtn">
+        Back to setup
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- HIGH / LOW -->
+  <div class="panel hidden" id="highLowScreen">
+
+    <div class="mini-game">
+
+      <div class="up-label">
+        HIGH OR LOW
+      </div>
+
+      <div class="mini-title" id="highLowPlayer">
+        -
+      </div>
+
+      <div class="card-display" id="highLowCard">
+        ?
+      </div>
+
+      <div class="mini-status" id="highLowStatus">
+        Choose a prediction.
+      </div>
+
+      <div class="choice-row">
+
+        <button class="primary-btn choice-btn" id="lowBtn">
+          LOWER
+        </button>
+
+        <button class="primary-btn choice-btn" id="highBtn">
+          HIGHER
+        </button>
+
+      </div>
+
+      <button class="secondary-btn" id="highLowBackBtn">
+        Back to games
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- REACTION TEST -->
+  <div class="panel hidden" id="reactionScreen">
+
+    <div class="mini-game">
+
+      <div class="up-label">
+        REACTION TEST
+      </div>
+
+      <div class="mini-title" id="reactionPlayer">
+        -
+      </div>
+
+      <div class="reaction-box" id="reactionBox">
+        PRESS START
+      </div>
+
+      <div class="mini-status" id="reactionStatus">
+        Each player gets one attempt.
+      </div>
+
+      <button class="primary-btn" id="reactionStartBtn">
+        Start
+      </button>
+
+      <button class="secondary-btn" id="reactionBackBtn">
+        Back to games
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- GAME -->
+  <div class="panel hidden" id="gameScreen">
+
+    <div class="bang-overlay" id="bangOverlay"></div>
+
+    <div class="game-layout">
+
+      <div class="game-main">
+
+        <div class="turn-panel">
+
+          <div class="up-label">
+            UP NEXT
+          </div>
+
+          <div class="up-name" id="upName">
+            -
+          </div>
+
+          <div class="cylinder-wrap">
+
+            <svg width="200" height="200" viewBox="0 0 200 200">
+
+              <circle
+                cx="100"
+                cy="100"
+                r="90"
+                fill="none"
+                stroke="var(--line)"
+                stroke-width="2"
+              />
+
+              <g id="chamberGroup"></g>
+
+              <circle
+                cx="100"
+                cy="100"
+                r="14"
+                fill="var(--bg)"
+                stroke="var(--brass)"
+                stroke-width="1.5"
+              />
+
+            </svg>
+
+          </div>
+
+          <div class="status-line" id="statusLine">
+            Everyone's in. Pull when ready.
+          </div>
+
+          <button class="primary-btn" id="pullBtn">
+            Pull the trigger
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <aside class="game-roster">
+
+        <div class="game-roster-title">
+          PLAYERS
+        </div>
+
+        <div class="roster" id="roster"></div>
+
+      </aside>
+
+    </div>
+
+  </div>
+
+
+  <!-- WINNER -->
+  <div class="panel hidden" id="winnerScreen">
+
+    <div class="winner-screen">
+
+      <div class="up-label">
+        LAST ONE STANDING
+      </div>
+
+      <div class="up-name" id="winnerName">
+        -
+      </div>
+
+      <p class="sub">
+        Everyone else is out.
+      </p>
+
+      <button class="primary-btn" id="playAgainBtn">
+        Play again
+      </button>
+
+      <button class="secondary-btn" id="backToStartBtn">
+        Back to start
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+  
+  <script>
+(function () {
+
+  const setupScreen =
+    document.getElementById('setupScreen');
+
+  const gameSelectScreen =
+    document.getElementById('gameSelectScreen');
+
+  const gameScreen =
+    document.getElementById('gameScreen');
+
+  const highLowScreen =
+    document.getElementById('highLowScreen');
+
+  const reactionScreen =
+    document.getElementById('reactionScreen');
+
+  const winnerScreen =
+    document.getElementById('winnerScreen');
+
+  const bangOverlay =
+    document.getElementById('bangOverlay');
+
+  const playersList =
+    document.getElementById('playersList');
+
+  const addPlayerBtn =
+    document.getElementById('addPlayerBtn');
+
+  const startBtn =
+    document.getElementById('startBtn');
+
+  const upName =
+    document.getElementById('upName');
+
+  const statusLine =
+    document.getElementById('statusLine');
+
+  const pullBtn =
+    document.getElementById('pullBtn');
+
+  const roster =
+    document.getElementById('roster');
+
+  const chamberGroup =
+    document.getElementById('chamberGroup');
+
+  const cylinderWrap =
+    document.querySelector('.cylinder-wrap');
+
+  const winnerName =
+    document.getElementById('winnerName');
+
+  const playAgainBtn =
+    document.getElementById('playAgainBtn');
+
+  const backToStartBtn =
+    document.getElementById('backToStartBtn');
+
+
+  /* ---------- Game select ---------- */
+
+  const gameSelectBackBtn =
+    document.getElementById('gameSelectBackBtn');
+
+
+  /* ---------- High / Low ---------- */
+
+  const highLowPlayer =
+    document.getElementById('highLowPlayer');
+
+  const highLowCard =
+    document.getElementById('highLowCard');
+
+  const highLowStatus =
+    document.getElementById('highLowStatus');
+
+  const lowBtn =
+    document.getElementById('lowBtn');
+
+  const highBtn =
+    document.getElementById('highBtn');
+
+  const highLowBackBtn =
+    document.getElementById('highLowBackBtn');
+
+
+  /* ---------- Reaction ---------- */
+
+  const reactionPlayer =
+    document.getElementById('reactionPlayer');
+
+  const reactionBox =
+    document.getElementById('reactionBox');
+
+  const reactionStatus =
+    document.getElementById('reactionStatus');
+
+  const reactionStartBtn =
+    document.getElementById('reactionStartBtn');
+
+  const reactionBackBtn =
+    document.getElementById('reactionBackBtn');
+
+
+  /* ---------- Russian Roulette state ---------- */
+
+  let playerCount = 0;
+
+  let players = [];
+
+  let turnOrder = [];
+
+  let turnPointer = 0;
+
+  let bulletChamber = 0;
+
+  let currentChamber = 0;
+
+  let roundOver = false;
+
+  let interactionLocked = false;
+
+
+  /* ---------- Mini game state ---------- */
+
+  let miniPlayerIndex = 0;
+
+  let highLowValue = 0;
+
+  let reactionTimer = null;
+
+  let reactionWaiting = false;
+
+  let reactionStartTime = 0;
+
+
+  /* =========================================================
+     Common screen functions
+     ========================================================= */
+
+  function showOnly(screen) {
+
+    [
+      setupScreen,
+      gameSelectScreen,
+      gameScreen,
+      highLowScreen,
+      reactionScreen,
+      winnerScreen
+    ].forEach(s => {
+
+      s.classList.add('hidden');
+
+    });
+
+    screen.classList.remove('hidden');
+
+  }
+
+
+  /* =========================================================
+     Effects
+     ========================================================= */
+
+  function playEffect(className, duration) {
+
+    gameScreen.classList.remove(className);
+
+    void gameScreen.offsetWidth;
+
+    gameScreen.classList.add(className);
+
+    setTimeout(() => {
+
+      gameScreen.classList.remove(className);
+
+    }, duration);
+
+  }
+
+
+  function playBangEffect() {
+
+    playEffect(
+      'screen-shake',
+      280
+    );
+
+
+    gameScreen.classList.remove(
+      'game-panel-bang'
+    );
+
+    void gameScreen.offsetWidth;
+
+    gameScreen.classList.add(
+      'game-panel-bang'
+    );
+
+
+    bangOverlay.classList.remove(
+      'active'
+    );
+
+    void bangOverlay.offsetWidth;
+
+    bangOverlay.classList.add(
+      'active'
+    );
+
+
+    setTimeout(() => {
+
+      gameScreen.classList.remove(
+        'game-panel-bang'
+      );
+
+      bangOverlay.classList.remove(
+        'active'
+      );
+
+    }, 300);
+
+  }
+
+
+  /* =========================================================
+     Player setup
+     ========================================================= */
+
+  function addPlayerRow(prefill) {
+
+    playerCount += 1;
+
+    const row =
+      document.createElement('div');
+
+    row.className = 'player-row';
+
+    row.innerHTML = `
+      <span class="num">${playerCount}</span>
+
+      <input
+        type="text"
+        maxlength="18"
+        placeholder="Player name"
+        value="${prefill || ''}"
+      >
+
+      <button
+        class="remove"
+        title="Remove"
+      >
+        x
+      </button>
+    `;
+
+
+    row
+      .querySelector('.remove')
+      .addEventListener(
+        'click',
+        () => {
+
+          row.remove();
+
+          renumber();
+
+        }
+      );
+
+
+    playersList.appendChild(row);
+
+  }
+
+
+  function renumber() {
+
+    const rows =
+      playersList.querySelectorAll(
+        '.player-row'
+      );
+
+    playerCount = rows.length;
+
+
+    rows.forEach((row, i) => {
+
+      row
+        .querySelector('.num')
+        .textContent = i + 1;
+
+    });
+
+  }
+
+
+  addPlayerRow('');
+
+  addPlayerRow('');
+
+
+  addPlayerBtn.addEventListener(
+    'click',
+    () => {
+
+      addPlayerRow('');
+
+    }
+  );
+
+
+  /* =========================================================
+     Start
+     ========================================================= */
+
+  startBtn.addEventListener(
+    'click',
+    () => {
+
+      const inputs =
+        [
+          ...playersList.querySelectorAll(
+            'input'
+          )
+        ];
+
+
+      const names =
+        inputs
+          .map(input =>
+            input.value.trim()
+          )
+          .filter(Boolean);
+
+
+      if (names.length < 2) {
+
+        statusSetupError();
+
+        return;
+
+      }
+
+
+      players =
+        names.map(name => ({
+          name: name,
+          alive: true
+        }));
+
+
+      showOnly(gameSelectScreen);
+
+    }
+  );
+
+
+  function statusSetupError() {
+
+    const note =
+      document.querySelector(
+        '.setup-note'
+      );
+
+
+    note.textContent =
+      'Add at least two names to start.';
+
+
+    note.style.color =
+      'var(--red-bright)';
+
+  }
+
+
+  /* =========================================================
+     Game select
+     ========================================================= */
+
+  document
+    .querySelectorAll('.game-card')
+    .forEach(card => {
+
+      card.addEventListener(
+        'click',
+        () => {
+
+          const game =
+            card.dataset.game;
+
+
+          if (game === 'roulette') {
+
+            showOnly(gameScreen);
+
+            startGame();
+
+          }
+
+
+          else if (game === 'highlow') {
+
+            startHighLow();
+
+          }
+
+
+          else if (game === 'reaction') {
+
+            miniPlayerIndex = 0;
+
+            showOnly(reactionScreen);
+
+            reactionPlayer.textContent =
+              players[miniPlayerIndex].name;
+
+          }
+
+        }
+      );
+
+    });
+
+
+  gameSelectBackBtn.addEventListener(
+    'click',
+    () => {
+
+      showOnly(setupScreen);
+
+    }
+  );
+
+
+  /* =========================================================
+     Russian Roulette
+     ========================================================= */
+
+  function startGame() {
+
+    setupScreen.classList.add(
+      'hidden'
+    );
+
+    gameSelectScreen.classList.add(
+      'hidden'
+    );
+
+    winnerScreen.classList.add(
+      'hidden'
+    );
+
+    gameScreen.classList.remove(
+      'hidden'
+    );
+
+
+    turnOrder =
+      players.map(
+        (_, i) => i
+      );
+
+
+    turnPointer = 0;
+
+
+    roundOver = false;
+
+    interactionLocked = false;
+
+
+    newCylinder();
+
+    drawChambers();
+
+    spinCylinder();
+
+    updateRoster();
+
+    setUpNext();
+
+
+    statusLine.className =
+      'status-line';
+
+
+    statusLine.textContent =
+      "Cylinder's loaded. Pull when ready.";
+
+
+    pullBtn.disabled = false;
+
+    pullBtn.textContent =
+      'Pull the trigger';
+
+  }
+
+
+  function newCylinder() {
+
+    bulletChamber =
+      Math.floor(
+        Math.random() * 6
+      );
+
+
+    currentChamber = 0;
+
+  }
+
+
+  function spinCylinder() {
+
+    interactionLocked = true;
+
+    pullBtn.disabled = true;
+
+
+    cylinderWrap.classList.remove(
+      'spinning'
+    );
+
+
+    chamberGroup
+      .querySelectorAll(
+        '.chamber-dot'
+      )
+      .forEach(dot => {
+
+        dot.classList.remove(
+          'current'
+        );
+
+      });
+
+
+    void cylinderWrap.offsetWidth;
+
+
+    cylinderWrap.classList.add(
+      'spinning'
+    );
+
+
+    setTimeout(() => {
+
+      cylinderWrap.classList.remove(
+        'spinning'
+      );
+
+
+      highlightCurrent();
+
+
+      interactionLocked = false;
+
+
+      if (!roundOver) {
+
+        pullBtn.disabled = false;
+
+      }
+
+    }, 1050);
+
+  }
+
+
+  function drawChambers() {
+
+    chamberGroup.innerHTML = '';
+
+
+    for (
+      let i = 0;
+      i < 6;
+      i++
+    ) {
+
+      const angle =
+        (
+          Math.PI * 2 * i
+        ) / 6
+        - Math.PI / 2;
+
+
+      const cx =
+        100 +
+        Math.cos(angle) * 58;
+
+
+      const cy =
+        100 +
+        Math.sin(angle) * 58;
+
+
+      const dot =
+        document.createElementNS(
+          'http://www.w3.org/2000/svg',
+          'circle'
+        );
+
+
+      dot.setAttribute(
+        'cx',
+        cx
+      );
+
+
+      dot.setAttribute(
+        'cy',
+        cy
+      );
+
+
+      dot.setAttribute(
+        'r',
+        13
+      );
+
+
+      dot.setAttribute(
+        'fill',
+        '#2A241C'
+      );
+
+
+      dot.setAttribute(
+        'stroke',
+        'var(--line)'
+      );
+
+
+      dot.setAttribute(
+        'stroke-width',
+        '1.5'
+      );
+
+
+      dot.classList.add(
+        'chamber-dot'
+      );
+
+
+      dot.dataset.index = i;
+
+
+      chamberGroup.appendChild(
+        dot
+      );
+
+    }
+
+
+    highlightCurrent();
+
+  }
+
+
+  function highlightCurrent() {
+
+    chamberGroup
+      .querySelectorAll(
+        '.chamber-dot'
+      )
+      .forEach(dot => {
+
+        dot.classList.toggle(
+          'current',
+          Number(dot.dataset.index)
+            === currentChamber
+        );
+
+      });
+
+  }
+
+
+  function aliveIndices() {
+
+    return turnOrder.filter(
+      i => players[i].alive
+    );
+
+  }
+
+
+  function setUpNext() {
+
+    const alive =
+      aliveIndices();
+
+
+    if (alive.length <= 1) {
+
+      return;
+
+    }
+
+
+    let tries = 0;
+
+
+    while (
+      !players[
+        turnOrder[turnPointer]
+      ].alive
+      &&
+      tries < turnOrder.length
+    ) {
+
+      turnPointer =
+        (
+          turnPointer + 1
+        ) % turnOrder.length;
+
+
+      tries++;
+
+    }
+
+
+    upName.textContent =
+      players[
+        turnOrder[turnPointer]
+      ].name;
+
+
+    updateRoster();
+
+  }
+
+
+  function advancePointer() {
+
+    turnPointer =
+      (
+        turnPointer + 1
+      ) % turnOrder.length;
+
+
+    let tries = 0;
+
+
+    while (
+      !players[
+        turnOrder[turnPointer]
+      ].alive
+      &&
+      tries < turnOrder.length
+    ) {
+
+      turnPointer =
+        (
+          turnPointer + 1
+        ) % turnOrder.length;
+
+
+      tries++;
+
+    }
+
+
+    updateRoster();
+
+  }
+
+
+  function updateRoster() {
+
+    roster.innerHTML = '';
+
+
+    const currentPlayerIdx =
+      turnOrder.length
+        ? turnOrder[turnPointer]
+        : -1;
+
+
+    players.forEach(
+      (player, i) => {
+
+        const chip =
+          document.createElement(
+            'span'
+          );
+
+
+        chip.className =
+          'chip ' +
+          (
+            player.alive
+              ? 'alive'
+              : 'out'
+          );
+
+
+        if (
+          i === currentPlayerIdx
+          &&
+          player.alive
+          &&
+          !roundOver
+        ) {
+
+          chip.classList.add(
+            'current-turn'
+          );
+
+        }
+
+
+        chip.textContent =
+          player.name;
+
+
+        roster.appendChild(
+          chip
+        );
+
+      }
+    );
+
+  }
+
+
+  /* =========================================================
+     Trigger
+     ========================================================= */
+
+  pullBtn.addEventListener(
+    'click',
+    () => {
+
+      if (
+        roundOver ||
+        interactionLocked
+      ) {
+
+        return;
+
+      }
+
+
+      const shooterIdx =
+        turnOrder[turnPointer];
+
+
+      const shooterName =
+        players[
+          shooterIdx
+        ].name;
+
+
+      highlightCurrent();
+
+
+      /* ---------- Bang ---------- */
+
+      if (
+        currentChamber ===
+        bulletChamber
+      ) {
+
+        playBangEffect();
+
+
+        const dot =
+          chamberGroup.querySelector(
+            `.chamber-dot[data-index="${currentChamber}"]`
+          );
+
+
+        if (dot) {
+
+          dot.classList.remove(
+            'safe'
+          );
+
+          dot.classList.add(
+            'spent'
+          );
+
+        }
+
+
+        players[
+          shooterIdx
+        ].alive = false;
+
+
+        interactionLocked = true;
+
+        pullBtn.disabled = true;
+
+
+        statusLine.className =
+          'status-line bang';
+
+
+        statusLine.textContent =
+          `${shooterName} is out.`;
+
+
+        updateRoster();
+
+
+        const alive =
+          aliveIndices();
+
+
+        /* ---------- Winner ---------- */
+
+        if (alive.length === 1) {
+
+          roundOver = true;
+
+
+          setTimeout(
+            () => {
+
+              showWinner(
+                players[
+                  alive[0]
+                ].name
+              );
+
+            },
+            900
+          );
+
+
+          return;
+
+        }
+
+
+        /* ---------- Reload ---------- */
+
+        else {
+
+          setTimeout(
+            () => {
+
+              newCylinder();
+
+              drawChambers();
+
+              spinCylinder();
+
+              advancePointer();
+
+              setUpNext();
+
+
+              statusLine.className =
+                'status-line';
+
+
+              statusLine.textContent =
+                'Fresh cylinder. Next round.';
+
+            },
+            900
+          );
+
+        }
+
+      }
+
+
+      /* ---------- Safe ---------- */
+
+      else {
+
+        const dot =
+          chamberGroup.querySelector(
+            `.chamber-dot[data-index="${currentChamber}"]`
+          );
+
+
+        if (dot) {
+
+          dot.classList.add(
+            'safe'
+          );
+
+        }
+
+
+        statusLine.className =
+          'status-line click';
+
+
+        playEffect(
+          'game-panel-flash',
+          280
+        );
+
+
+        statusLine.textContent =
+          `Click. ${shooterName} is safe - pass it on.`;
+
+
+        currentChamber =
+          (
+            currentChamber + 1
+          ) % 6;
+
+
+        advancePointer();
+
+        setUpNext();
+
+
+        setTimeout(
+          highlightCurrent,
+          50
+        );
+
+      }
+
+    }
+  );
+
+
+  function showWinner(name) {
+
+    gameScreen.classList.add(
+      'hidden'
+    );
+
+    winnerScreen.classList.remove(
+      'hidden'
+    );
+
+
+    winnerName.textContent =
+      name;
+
+  }
+
+
+  /* =========================================================
+     Play again
+     ========================================================= */
+
+  playAgainBtn.addEventListener(
+    'click',
+    () => {
+
+      players.forEach(
+        player => {
+
+          player.alive = true;
+
+        }
+      );
+
+
+      roundOver = false;
+
+      interactionLocked = false;
+
+
+      startGame();
+
+    }
+  );
+
+
+  /* =========================================================
+     Back to start
+     ========================================================= */
+
+  backToStartBtn.addEventListener(
+    'click',
+    () => {
+
+      roundOver = false;
+
+
+      gameScreen.classList.add(
+        'hidden'
+      );
+
+      winnerScreen.classList.add(
+        'hidden'
+      );
+
+      gameSelectScreen.classList.remove(
+        'hidden'
+      );
+
+    }
+  );
+
+
+  /* =========================================================
+     HIGH OR LOW
+     ========================================================= */
+
+  function startHighLow() {
+
+    miniPlayerIndex = 0;
+
+    showOnly(
+      highLowScreen
+    );
+
+
+    nextHighLowRound();
+
+  }
+
+
+  function nextHighLowRound() {
+
+    highLowPlayer.textContent =
+      players[
+        miniPlayerIndex
+      ].name;
+
+
+    highLowValue =
+      Math.floor(
+        Math.random() * 13
+      ) + 1;
+
+
+    highLowCard.textContent =
+      highLowValue;
+
+
+    highLowStatus.textContent =
+      'Will the next card be higher or lower?';
+
+
+    lowBtn.disabled = false;
+
+    highBtn.disabled = false;
+
+  }
+
+
+  function guessHighLow(guess) {
+
+    const next =
+      Math.floor(
+        Math.random() * 13
+      ) + 1;
+
+
+    const correct =
+      guess === 'high'
+        ? next > highLowValue
+        : next < highLowValue;
+
+
+    highLowCard.textContent =
+      next;
+
+
+    if (
+      next === highLowValue
+    ) {
+
+      highLowStatus.textContent =
+        'Same number — no point this round.';
+
+    }
+
+    else if (correct) {
+
+      highLowStatus.textContent =
+        'Correct!';
+
+    }
+
+    else {
+
+      highLowStatus.textContent =
+        'Wrong!';
+
+    }
+
+
+    lowBtn.disabled = true;
+
+    highBtn.disabled = true;
+
+
+    setTimeout(
+      () => {
+
+        miniPlayerIndex =
+          (
+            miniPlayerIndex + 1
+          ) % players.length;
+
+
+        nextHighLowRound();
+
+      },
+      1000
+    );
+
+  }
+
+
+  lowBtn.addEventListener(
+    'click',
+    () => {
+
+      guessHighLow(
+        'low'
+      );
+
+    }
+  );
+
+
+  highBtn.addEventListener(
+    'click',
+    () => {
+
+      guessHighLow(
+        'high'
+      );
+
+    }
+  );
+
+
+  highLowBackBtn.addEventListener(
+    'click',
+    () => {
+
+      showOnly(
+        gameSelectScreen
+      );
+
+    }
+  );
+
+
+  /* =========================================================
+     REACTION TEST
+     ========================================================= */
+
+  function startReaction() {
+
+    if (reactionWaiting) {
+
+      return;
+
+    }
+
+
+    reactionStartBtn.disabled =
+      true;
+
+
+    reactionBox.classList.remove(
+      'ready'
+    );
+
+
+    reactionBox.textContent =
+      'WAIT...';
+
+
+    reactionStatus.textContent =
+      'Do not press until the signal appears.';
+
+
+    reactionWaiting = true;
+
+
+    const delay =
+      1200 +
+      Math.random() * 2800;
+
+
+    reactionTimer =
+      setTimeout(
+        () => {
+
+          reactionBox.classList.add(
+            'ready'
+          );
+
+
+          reactionBox.textContent =
+            'PRESS!';
+
+
+          reactionStartTime =
+            performance.now();
+
+        },
+        delay
+      );
+
+  }
+
+
+  function reactionClick() {
+
+    if (!reactionWaiting) {
+
+      return;
+
+    }
+
+
+    /* ---------- Too early ---------- */
+
+    if (
+      !reactionBox.classList.contains(
+        'ready'
+      )
+    ) {
+
+      clearTimeout(
+        reactionTimer
+      );
+
+
+      reactionWaiting = false;
+
+      reactionStartBtn.disabled =
+        false;
+
+
+      reactionBox.textContent =
+        'TOO SOON';
+
+
+      reactionStatus.textContent =
+        'Wait for PRESS, then tap.';
+
+
+      return;
+
+    }
+
+
+    /* ---------- Success ---------- */
+
+    const ms =
+      Math.round(
+        performance.now() -
+        reactionStartTime
+      );
+
+
+    reactionWaiting = false;
+
+    reactionStartBtn.disabled =
+      false;
+
+
+    reactionBox.classList.remove(
+      'ready'
+    );
+
+
+    reactionBox.textContent =
+      ms + ' ms';
+
+
+    reactionStatus.textContent =
+      players[
+        miniPlayerIndex
+      ].name +
+      '의 기록';
+
+
+    miniPlayerIndex =
+      (
+        miniPlayerIndex + 1
+      ) % players.length;
+
+
+    reactionPlayer.textContent =
+      players[
+        miniPlayerIndex
+      ].name;
+
+  }
+
+
+  reactionStartBtn.addEventListener(
+    'click',
+    startReaction
+  );
+
+
+  reactionBox.addEventListener(
+    'click',
+    reactionClick
+  );
+
+
+  reactionBackBtn.addEventListener(
+    'click',
+    () => {
+
+      clearTimeout(
+        reactionTimer
+      );
+
+
+      reactionWaiting = false;
+
+
+      showOnly(
+        gameSelectScreen
+      );
+
+    }
+  );
+
+
+})();
+</script>
+
+</body>
+</html>
